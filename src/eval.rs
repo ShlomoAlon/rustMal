@@ -2,7 +2,7 @@ use std::array::IntoIter;
 use std::fmt::Error;
 use crate:: {MalType, pr_str};
 use crate::env::{default_env, Env};
-use crate::MalType::{List, Nil};
+use crate::MalType::{List, Nil, Symbol};
 use crate::types::{MalFunc, MalIter, MalList};
 use crate::reader::BoxResult;
 
@@ -16,33 +16,31 @@ pub fn eval(ast: MalType, e: & mut Env) -> MalType{
                 MalType::List(l)
             } else if l.len() == 1 {
                 eval(l.pop().unwrap(), e)
-            }else {
+            } else {
                 let x = l.get(0).unwrap();
                 match x.to_symbol().unwrap_or(&"".to_string()).as_str() {
                     "def!" => eval_def(l, e),
                     "let*" => eval_let(l, e),
                     "if" => eval_if(l, e),
-                    other => eval_list(l, e)
+                    other => eval_func(l, e)
                 }
             }
 
         }
-        other => eval_ast(other, e).unwrap()
+        Symbol(x) => e.get(x).unwrap().clone(),
+        other => other
     }
 }
-fn eval_func(lis: MalList) -> MalType{
-    Nil
+fn eval_func(lis: MalList,e :& mut Env) -> MalType{
+    let lis = eval_whole_list(lis, e);
+    let mut s = lis.into_iter();
+    let f = *s.next().unwrap().
+        to_func().unwrap();
+    f(s.collect())
 }
-fn eval_list(lis: MalList, e:& mut Env) -> MalType {
-    let lis = eval_ast(List(lis), e).unwrap().to_list().unwrap();
-    if lis.len() == 1 {
-        lis.get(0).unwrap().clone()
-    } else {
-        let mut s = lis.into_iter();
-        let f = *s.next().unwrap().
-            to_func().unwrap();
-        f(s.collect())
-    }
+
+fn eval_whole_list(lis: MalList, e: & mut Env) -> MalList{
+    lis.into_iter().map(|x| eval(x, e)).collect()
 }
 
 
@@ -70,7 +68,6 @@ fn eval_let(lis: MalList, e: &mut Env) -> MalType{
     eval(lis.next().unwrap(), & mut new_env)
 }
 fn eval_if(lis: MalList, e: &mut Env) -> MalType{
-    println!("{}", pr_str(MalType::List(lis.clone())));
     let mut lis = lis.into_iter();
     lis.next();
     if eval(lis.next().unwrap(), e).not_nil_or_false(){
@@ -80,29 +77,15 @@ fn eval_if(lis: MalList, e: &mut Env) -> MalType{
         eval(lis.next().unwrap_or(Nil), e)
     }
 }
-fn eval_do(lis: MalList, e: &mut Env) -> MalType{
-    let mut lis = lis.into_iter();
-    lis.next();
-    lis.map(|i| eval_ast(i, e)).last().unwrap().unwrap()
-}
+// fn eval_do(lis: MalList, e: &mut Env) -> MalType{
+//     let mut lis = lis.into_iter();
+//     lis.next();
+//     lis.map(|i| eval_ast(i, e)).last().unwrap().unwrap()
+// }
+
+// fn eval_symbol
 
 
-
-
-fn eval_ast(ast: MalType, e: & mut Env) -> BoxResult<MalType>{
-    println!(" eval ast {}" , pr_str(ast.clone()));
-    match ast {
-        MalType::Symbol(s) => {
-            println!("{:#?}", e);
-            Ok(e.get(s).unwrap().clone())
-        }
-        MalType::List(l) => {
-            Ok(MalType::List(l.into_iter().map(|x| eval(x, e)).collect::<MalList>()))
-        }
-        other=> Ok(other)
-    }
-
-}
 #[cfg(test)]
 mod tests {
     use crate::{pr_str, read};
