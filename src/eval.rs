@@ -1,12 +1,16 @@
 use std::array::IntoIter;
 use std::fmt::Error;
+use std::fs::copy;
 use crate:: {MalType, pr_str};
-use crate::env::{default_env, Env};
-use crate::MalType::{List, Nil, Symbol};
-use crate::types::{MalFunc, MalIter, MalList};
+use crate::core::default_env;
+use crate::env::{Env, RcEnv};
+use crate::MalType::{List, Nil, PrFunc, Symbol};
+use crate::types::{Func, MalIter, MalList, PrimitiveFuncs};
 use crate::reader::BoxResult;
+use crate::env::Environment;
 
-pub fn eval(ast: MalType, e: & mut Env) -> MalType{
+
+pub fn eval(ast: MalType, e: & RcEnv) -> MalType{
     println!(" eval {}" , ast);
     
     match ast {
@@ -22,6 +26,8 @@ pub fn eval(ast: MalType, e: & mut Env) -> MalType{
                     "def!" => eval_def(l, e),
                     "let*" => eval_let(l, e),
                     "if" => eval_if(l, e),
+                    "do" => eval_do(l, e),
+                    "fn*" => eval_fn(l, e),
                     other => eval_func(l, e)
                 }
             }
@@ -31,27 +37,29 @@ pub fn eval(ast: MalType, e: & mut Env) -> MalType{
         other => other
     }
 }
-fn eval_func(lis: MalList,e :& mut Env) -> MalType{
+fn eval_func(lis: MalList,e :& RcEnv) -> MalType{
     let lis = eval_whole_list(lis, e);
     let mut s = lis.into_iter();
-    let f = *s.next().unwrap().
-        to_func().unwrap();
-    f(s.collect())
+    match s.next().unwrap() {
+        PrFunc(f) => f(s.collect()),
+        MalType::Func(f) => f.run_func(s.collect()),
+        other => panic!()
+    }
 }
 
-fn eval_whole_list(lis: MalList, e: & mut Env) -> MalList{
+fn eval_whole_list(lis: MalList, e: & RcEnv) -> MalList{
     lis.into_iter().map(|x| eval(x, e)).collect()
 }
 
 
-fn eval_def(lis: MalList, e: &mut Env) -> MalType{
+fn eval_def(lis: MalList, e: & RcEnv) -> MalType{
     let h = eval(lis.get(2).unwrap().clone(), e);
     e.set(lis.get(1).unwrap().to_symbol().unwrap().clone(),h.clone());
     println!("{:#?}", e);
     h
 }
 
-fn create_bindings_for_let_block(lis: MalList, e: &mut Env){
+fn create_bindings_for_let_block(lis: MalList, e: & RcEnv){
     let mut i = lis.into_iter().peekable();
     while i.peek().is_some() {
         let symbol = i.next().unwrap().to_symbol().unwrap().to_string();
@@ -59,15 +67,15 @@ fn create_bindings_for_let_block(lis: MalList, e: &mut Env){
         e.set(symbol, value);
     }
 }
-fn eval_let(lis: MalList, e: &mut Env) -> MalType{
-    let mut new_env = e.new_env();
+fn eval_let(lis: MalList, e: & RcEnv) -> MalType{
+    let new_env = e.new_env();
     let mut lis = lis.into_iter();
     lis.next();
     let first_block = lis.next().unwrap().to_list().unwrap();
-    create_bindings_for_let_block(first_block, & mut new_env);
-    eval(lis.next().unwrap(), & mut new_env)
+    create_bindings_for_let_block(first_block, & new_env);
+    eval(lis.next().unwrap(), & new_env)
 }
-fn eval_if(lis: MalList, e: &mut Env) -> MalType{
+fn eval_if(lis: MalList, e: & RcEnv) -> MalType{
     let mut lis = lis.into_iter();
     lis.next();
     if eval(lis.next().unwrap(), e).not_nil_or_false(){
@@ -77,13 +85,22 @@ fn eval_if(lis: MalList, e: &mut Env) -> MalType{
         eval(lis.next().unwrap_or(Nil), e)
     }
 }
-// fn eval_do(lis: MalList, e: &mut Env) -> MalType{
-//     let mut lis = lis.into_iter();
-//     lis.next();
-//     lis.map(|i| eval_ast(i, e)).last().unwrap().unwrap()
-// }
+fn eval_do(lis: MalList, e: & RcEnv) -> MalType{
+    let mut lis = lis.into_iter();
+    lis.next();
+    lis.map(|i| eval(i, e)).last().unwrap()
+}
 
-// fn eval_symbol
+fn eval_fn(l: MalList, e: & RcEnv) -> MalType{
+    MalType::Func(Box::from(Func {
+        parameters: l[1].clone().to_list().unwrap(),
+        body: l[2].clone(),
+        environment: e.clone()
+    }))
+}
+
+
+
 
 
 #[cfg(test)]

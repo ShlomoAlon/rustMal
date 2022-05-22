@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use crate::MalType;
 
 pub fn pr_str(ast: MalType) -> String{
@@ -12,6 +13,9 @@ pub fn pr_str(ast: MalType) -> String{
                 collect::<Vec<String>>().
                 join(" ") + ")"}
         MalType::Num(x) => {x.to_string()}
-        MalType::Func(x) => "func".to_string()
+        MalType::PrFunc(x) => "func".to_string(),
+        MalType::Func(x) => {
+            x.body.to_string()
+        }
     }
 }

@@ -15,7 +15,7 @@ struct Reader {
 }
 
 impl Reader {
-    fn next(& mut self) -> (){
+    fn next(& mut self) {
         self.position += 1
     }
 

@@ -6,8 +6,9 @@ pub type MalList = Vec<MalType>;
 pub type MalIter = std::vec::IntoIter<MalType>;
 use enum_as_inner::EnumAsInner;
 use lazy_static::lazy_static;
-use crate::MalType::{Bool, Func, List, Num, Str, Symbol};
-use crate::pr_str;
+use crate::MalType::{Bool, PrFunc, List, Num, Str, Symbol};
+use crate::{Env, eval, pr_str, RcEnv};
+use crate::env::Environment;
 use crate::reader::BoxResult;
 
 #[derive(Debug, EnumAsInner, Clone)]
@@ -18,7 +19,8 @@ pub enum MalType{
     Symbol(String),
     List(MalList),
     Num(f64),
-    Func(MalFunc)
+    PrFunc(PrimitiveFuncs),
+    Func(Box<Func>)
 }
 impl fmt::Display for MalType {
     // This trait requires `fmt` with this exact signature.
@@ -31,7 +33,7 @@ impl fmt::Display for MalType {
     }
 }
 
-impl MalType {
+impl MalType  {
     pub fn to_list(self) -> Option<MalList> {
         match self {
             List(x) => Some(x),
@@ -57,9 +59,9 @@ impl MalType {
             other => None
         }
     }
-    pub fn to_func(&self) -> Option<&MalFunc> {
+    pub fn to_func(&self) -> Option<&PrimitiveFuncs> {
         match self {
-            Func(x) => Some(x),
+            PrFunc(x) => Some(x),
             other => None
         }
     }
@@ -79,12 +81,24 @@ impl MalType {
     }
 
 }
-pub struct  MalError{
+pub type PrimitiveFuncs = fn(MalList) -> MalType;
 
+
+#[derive(Debug, Clone)]
+pub struct Func {
+    pub(crate) parameters: MalList,
+    pub(crate) body: MalType,
+    pub(crate) environment: RcEnv,
 }
 
-type MalRet = Result<MalType, MalError>;
-pub type MalFunc = fn(MalList) -> MalType;
+impl Func {
+    pub fn run_func( &self , values: MalList) -> MalType{
+        let new_env = self.environment.new_env_with_binds(self.parameters.clone(), values);
+        eval(self.body.clone(), & new_env)
+
+    }
+
+}
 
 
 
