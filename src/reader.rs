@@ -1,3 +1,4 @@
+use anyhow::Result;
 use lazy_static::lazy_static;
 use regex::{Regex};
 use crate::types::{MalList, MalType};
@@ -8,6 +9,7 @@ lazy_static! {
         static ref RE: Regex = Regex::new(
         r###"[\s,]*(~@|[\[\]{}()'`~^@]|"(?:\\.|[^\\"])*"?|;.*|[^\s\[\]{}('"`,;)]*)"###
         ).unwrap();}
+type e<T> = anyhow::Result<T>;
 #[derive(Debug)]
 struct Reader {
     tokens:Vec<Token>,
@@ -33,7 +35,7 @@ fn tokenize(text: &str) -> Vec<Token>{
 
 }
 
-pub fn read_str(text: &str) -> BoxResult<MalType>{
+pub fn read_str(text: &str) -> Result<MalType>{
     let mut r = Reader{
         tokens: tokenize(text),
         position: 0,};
@@ -49,14 +51,14 @@ pub fn read_str(text: &str) -> BoxResult<MalType>{
         Err(_) => Ok(MalType::List(vec![]))
     }
 }
-fn read_form(r: & mut Reader) -> BoxResult<MalType> {
+fn read_form(r: & mut Reader) -> Result<MalType> {
     // println!("read form {:?}", r);
     match r.peek().unwrap().as_str() {
         "(" => read_list(r),
          _ => read_atom(r)
     }
 }
-fn read_list(r: &mut Reader) -> BoxResult<MalType> {
+fn read_list(r: &mut Reader) -> Result<MalType> {
     // println!(" read list {:?}", r);
     let mut v: MalList = vec![];
     r.next();
@@ -71,7 +73,7 @@ fn read_list(r: &mut Reader) -> BoxResult<MalType> {
     }
     Ok(MalType::List(v))
 }
-fn read_atom(r: &mut Reader) -> BoxResult<MalType> {
+fn read_atom(r: &mut Reader) -> Result<MalType> {
     // println!(" read atom {:?}", r);
     let x = r.peek().unwrap();
     r.next();
