@@ -23,8 +23,8 @@ pub(crate) trait Environment{
     fn new_env(&self) -> RcEnv;
     fn new_env_with_binds(&self, binds: MalList, exprs: MalList) -> RcEnv;
 }
-impl Environment for RcEnv{
-    fn set(&self, symbol: String, m: MalType){
+impl Environment for RcEnv {
+    fn set(&self, symbol: String, m: MalType) {
         self.data.borrow_mut().insert(symbol, m);
     }
     fn find(&self, symbol: String) -> Option<MalType> {
@@ -38,25 +38,20 @@ impl Environment for RcEnv{
     }
     fn get(&self, symbol: String) -> BoxResult<MalType> {
         Ok(self.find(symbol).ok_or(Error)?)
-
     }
-    fn new_env(&self) -> RcEnv{
+    fn new_env(&self) -> RcEnv {
         Rc::new(Env {
             outer: Some(self.clone()),
             data: RefCell::new(HashMap::new())
         })
     }
-    fn new_env_with_binds(&self, binds: MalList, exprs: MalList) -> RcEnv{
+    fn new_env_with_binds(&self, binds: MalList, exprs: MalList) -> RcEnv {
         let result = self.new_env();
         let mut s1 = binds.into_iter().peekable();
         let mut s2 = exprs.into_iter().peekable();
-        while s1.peek().is_some() && s2.peek().is_some(){
+        while s1.peek().is_some() && s2.peek().is_some() {
             result.set(s1.next().unwrap().to_string(), s2.next().unwrap())
         }
         result
-
     }
-
-
-
 }

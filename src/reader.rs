@@ -1,86 +1,74 @@
-use anyhow::Result;
+use anyhow::{anyhow, bail, Context, Result};
 use lazy_static::lazy_static;
 use regex::{Regex};
 use crate::types::{MalList, MalType};
 use core::fmt::Error;
+use std::iter::Peekable;
+use std::vec::IntoIter;
+use crate::MalType::List;
+
+type Reader = Peekable<IntoIter<Token>>;
 type Token = String;
 pub type BoxResult<T> = Result<T,Box<Error>>;
 lazy_static! {
         static ref RE: Regex = Regex::new(
-        r###"[\s,]*(~@|[\[\]{}()'`~^@]|"(?:\\.|[^\\"])*"?|;.*|[^\s\[\]{}('"`,;)]*)"###
+        r###"[\s,]*(~@|[\[\]{}()'`~^@]|"(?:\\.|[^\\"])*"?|;.*|[^\s\[\]{}('"`,;)]+)"###
         ).unwrap();}
-type e<T> = anyhow::Result<T>;
-#[derive(Debug)]
-struct Reader {
-    tokens:Vec<Token>,
-    position: usize,
+
+fn add_parens(result: & mut Vec<Token>){
+    result.push(")".to_string());
+    result.insert(0, "(".to_string());
 }
-
-impl Reader {
-    fn next(& mut self) {
-        self.position += 1
-    }
-
-    fn peek(&self) -> BoxResult<Token>{
-        Ok(self.tokens.get(self.position).ok_or(Error)?.to_owned())
-    }
-}
-
 fn tokenize(text: &str) -> Vec<Token>{
     let mut result: Vec<Token> = Vec::new();
-    for cap in RE.captures_iter(& text){
+    for cap in RE.captures_iter(text){
         result.push(cap[1].to_string())
     }
+    add_parens(& mut result);
     result
-
 }
 
 pub fn read_str(text: &str) -> Result<MalType>{
-    let mut r = Reader{
-        tokens: tokenize(text),
-        position: 0,};
-    // println!(" read str {:?}", r);
-    match r.peek() {
-        Ok(token) => match token.as_str() {
-            "(" => read_form(&mut r),
-             _ => {
-                 r.tokens.pop();
-                 r.tokens.insert(0, "(".to_string());
-                 r.tokens.push(")".to_string());
-                 read_list(& mut r)}},
-        Err(_) => Ok(MalType::List(vec![]))
+    let mut r = tokenize(text).into_iter().peekable();
+    let result = read_list(& mut r)?;
+    if r.peek().is_some(){
+        let join : Vec<String> = r.collect();
+        let mut join = join.join(" ");
+        join.pop();
+        bail!("to many closing parenthesis remainder is: \n {}" , join )
     }
+    Ok(result)
+
+
 }
-fn read_form(r: & mut Reader) -> Result<MalType> {
-    // println!("read form {:?}", r);
-    match r.peek().unwrap().as_str() {
-        "(" => read_list(r),
-         _ => read_atom(r)
-    }
-}
-fn read_list(r: &mut Reader) -> Result<MalType> {
+fn read_list(r: & mut Reader) -> Result<MalType> {
     // println!(" read list {:?}", r);
     let mut v: MalList = vec![];
     r.next();
     loop {
-        let x = r.peek()?;
-        if x == ")" {
-            r.next();
-            break
-        } else {
-            v.push(read_form(r)?)
+        let x = r.peek().ok_or(anyhow!("no closing paren"))?;
+        match x.as_str() {
+            ")" => {r.next();
+                break}
+            "(" => v.push(read_list(r)?),
+            _ => v.push(read_atom(r)?)
         }
     }
-    Ok(MalType::List(v))
+    Ok(List(v))
 }
-fn read_atom(r: &mut Reader) -> Result<MalType> {
+fn read_atom(r: & mut Reader) -> Result<MalType> {
     // println!(" read atom {:?}", r);
-    let x = r.peek().unwrap();
-    r.next();
-    if x.chars().nth(0).unwrap() == '"' {
-        Ok(MalType::Str(x))
+    let x = r.next().expect("should always be valid");
+    if x.starts_with('"'){
+        if x.len() == 1{
+            bail!("invalid string {}", x)
+        } else if !x.ends_with('"'){
+            bail!("no closing quote {}", x)
+        } else {
+            Ok(MalType::Str(x))
+        }
     } else if x.chars().nth(0).unwrap().is_numeric() {
-        Ok(MalType::Num(x.parse().unwrap()))
+        Ok(MalType::Num(x.parse().context(format!("could not parse {} as num", x))?))
     } else if x == "true" {
         Ok(MalType::Bool(true))
     } else if x == "false" {

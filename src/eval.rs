@@ -92,9 +92,11 @@ fn eval_do(lis: MalList, e: & RcEnv) -> MalType{
 }
 
 fn eval_fn(l: MalList, e: & RcEnv) -> MalType{
+    let mut i = l.into_iter();
+    i.next();
     MalType::Func(Box::from(Func {
-        parameters: l[1].clone().to_list().unwrap(),
-        body: l[2].clone(),
+        parameters: i.next().unwrap().to_list().unwrap(),
+        body: i.next().unwrap(),
         environment: e.clone()
     }))
 }
