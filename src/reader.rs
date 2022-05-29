@@ -50,11 +50,16 @@ fn read_list(r: & mut Reader) -> Result<MalType> {
         match x.as_str() {
             ")" => {r.next();
                 break}
-            "(" => v.push(read_list(r)?),
-            _ => v.push(read_atom(r)?)
+            _ => v.push(read_form(r)?)
         }
     }
     Ok(List(v))
+}
+fn read_form(r: & mut Reader) -> Result<MalType>{
+    match r.peek().unwrap().as_str() {
+        "(" => read_list(r),
+        _ => read_atom(r),
+    }
 }
 fn read_atom(r: & mut Reader) -> Result<MalType> {
     // println!(" read atom {:?}", r);
@@ -68,7 +73,7 @@ fn read_atom(r: & mut Reader) -> Result<MalType> {
             Ok(MalType::Str(x))
         }
     } else if x.chars().nth(0).unwrap().is_numeric() {
-        Ok(MalType::Num(x.parse().context(format!("could not parse {} as num", x))?))
+        Ok(MalType::Num(x.parse().map_err(|_|anyhow!("failed to parse {} as num", x))?))
     } else if x == "true" {
         Ok(MalType::Bool(true))
     } else if x == "false" {

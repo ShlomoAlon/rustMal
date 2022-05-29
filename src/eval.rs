@@ -5,10 +5,11 @@ use crate:: {MalType, pr_str};
 use crate::core::default_env;
 use crate::env::{Env, RcEnv};
 use crate::MalType::{List, Nil, PrFunc, Symbol};
-use crate::types::{Func, MalIter, MalList, PrimitiveFuncs};
+use crate::types::{MalIter, MalList};
 use crate::reader::BoxResult;
 use crate::env::Environment;
-
+use crate::funcs::{Func, PrimitiveFuncs};
+use anyhow::{anyhow, bail, Context, Result};
 
 pub fn eval(ast: MalType, e: & RcEnv) -> MalType{
     println!(" eval {}" , ast);
@@ -94,11 +95,10 @@ fn eval_do(lis: MalList, e: & RcEnv) -> MalType{
 fn eval_fn(l: MalList, e: & RcEnv) -> MalType{
     let mut i = l.into_iter();
     i.next();
-    MalType::Func(Box::from(Func {
-        parameters: i.next().unwrap().to_list().unwrap(),
-        body: i.next().unwrap(),
-        environment: e.clone()
-    }))
+    MalType::Func(Box::new(Func::new(i.next().unwrap().to_list().unwrap(),
+              i.next().unwrap(),
+              e.clone()).unwrap()))
+
 }
 
 

@@ -6,9 +6,10 @@ pub type MalList = Vec<MalType>;
 pub type MalIter = std::vec::IntoIter<MalType>;
 use enum_as_inner::EnumAsInner;
 use lazy_static::lazy_static;
-use crate::MalType::{Bool, PrFunc, List, Num, Str, Symbol};
+use crate::MalType::{Bool, List, Num, PrFunc, Str, Symbol};
 use crate::{Env, eval, pr_str, RcEnv};
 use crate::env::Environment;
+use crate::funcs::{Func, PrimitiveFuncs};
 use crate::reader::BoxResult;
 
 #[derive(Debug, EnumAsInner, Clone)]
@@ -22,6 +23,7 @@ pub enum MalType{
     PrFunc(PrimitiveFuncs),
     Func(Box<Func>)
 }
+
 impl fmt::Display for MalType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", pr_str(self.clone()))
@@ -73,24 +75,6 @@ impl MalType  {
             other=> true
 
         }
-    }
-
-}
-pub type PrimitiveFuncs = fn(MalList) -> MalType;
-
-
-#[derive(Debug, Clone)]
-pub struct Func {
-    pub(crate) parameters: MalList,
-    pub(crate) body: MalType,
-    pub(crate) environment: RcEnv,
-}
-
-impl Func {
-    pub fn run_func( &self , values: MalList) -> MalType{
-        let new_env = self.environment.new_env_with_binds(self.parameters.clone(), values);
-        eval(self.body.clone(), & new_env)
-
     }
 
 }
