@@ -1,19 +1,18 @@
-use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Error;
+
+use anyhow::{anyhow, bail, Context, Result};
+use enum_as_inner::EnumAsInner;
+
+use crate::{InnerEnv, eval, pr_str, Env};
+use crate::env::Environment;
+use crate::funcs::{Func, PrimitiveFuncs};
+use crate::MalType::{Bool, List, Num, PrFunc, Str, Symbol};
 
 pub type MalList = Vec<MalType>;
 pub type MalIter = std::vec::IntoIter<MalType>;
-use enum_as_inner::EnumAsInner;
-use lazy_static::lazy_static;
-use crate::MalType::{Bool, List, Num, PrFunc, Str, Symbol};
-use crate::{Env, eval, pr_str, RcEnv};
-use crate::env::Environment;
-use crate::funcs::{Func, PrimitiveFuncs};
-use crate::reader::BoxResult;
 
 #[derive(Debug, EnumAsInner, Clone)]
-pub enum MalType{
+pub enum MalType {
     Nil,
     Bool(bool),
     Str(String),
@@ -21,7 +20,7 @@ pub enum MalType{
     List(MalList),
     Num(f64),
     PrFunc(PrimitiveFuncs),
-    Func(Box<Func>)
+    Funcs(Box<Func>),
 }
 
 impl fmt::Display for MalType {
@@ -30,54 +29,53 @@ impl fmt::Display for MalType {
     }
 }
 
-impl MalType  {
-    pub fn to_list(self) -> Option<MalList> {
+impl MalType {
+    pub fn to_list(self) -> Result<MalList> {
         match self {
-            List(x) => Some(x),
-            other => None
+            List(x) => Ok(x),
+            other => Err(anyhow!("{} is not a list", other))
         }
     }
-    pub fn to_num(& self) -> Option<f64> {
+    pub fn to_num(&self) -> Result<f64> {
         match self {
-            Num(x) => Some(*x),
-            other => None
+            Num(x) => Ok(*x),
+            other => Err(anyhow!("{} is Not a num", other))
         }
     }
-    pub fn to_bool(self) -> Option<bool> {
+    pub fn to_bool(self) -> Result<bool> {
         match self {
-            Bool(x) => Some(x),
-            other => None
+            Bool(x) => Ok(x),
+            other => Err(anyhow!("{} is Not a bool", other))
         }
     }
 
-    pub fn to_str(&self) -> Option<&String> {
+    pub fn to_str(&self) -> Result<&String> {
         match self {
-            Str(x) => Some(x),
-            other => None
+            Str(x) => Ok(x),
+            other => Err(anyhow!("{} is not a string", other))
         }
     }
-    pub fn to_func(&self) -> Option<&PrimitiveFuncs> {
+    pub fn to_func(&self) -> Result<&PrimitiveFuncs> {
         match self {
-            PrFunc(x) => Some(x),
-            other => None
+            PrFunc(x) => Ok(x),
+            other => Err(anyhow!("{} is not a func", other))
         }
     }
-    pub fn to_symbol(&self) -> Option<&String> {
+    pub fn to_symbol(&self) -> Result<&String> {
         match self {
-            Symbol(x) => Some(x),
-            other => None
+            Symbol(x) => Ok(x),
+            other => Err(anyhow!("{} not a symbol", other))
         }
     }
-    pub fn not_nil_or_false(&self) -> bool{
+    pub fn not_nil_or_false(&self) -> bool {
         match self {
             MalType::Nil => false,
             Bool(bool) => *bool,
-            other=> true
-
+            _ => true
         }
     }
-
 }
+
 
 
 

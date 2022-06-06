@@ -2,14 +2,12 @@ use anyhow::{anyhow, bail, Context, Result};
 use lazy_static::lazy_static;
 use regex::{Regex};
 use crate::types::{MalList, MalType};
-use core::fmt::Error;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use crate::MalType::List;
 
 type Reader = Peekable<IntoIter<Token>>;
 type Token = String;
-pub type BoxResult<T> = Result<T,Box<Error>>;
 lazy_static! {
         static ref RE: Regex = Regex::new(
         r###"[\s,]*(~@|[\[\]{}()'`~^@]|"(?:\\.|[^\\"])*"?|;.*|[^\s\[\]{}('"`,;)]+)"###
@@ -32,17 +30,13 @@ pub fn read_str(text: &str) -> Result<MalType>{
     let mut r = tokenize(text).into_iter().peekable();
     let result = read_list(& mut r)?;
     if r.peek().is_some(){
-        let join : Vec<String> = r.collect();
-        let mut join = join.join(" ");
-        join.pop();
-        bail!("to many closing parenthesis remainder is: \n {}" , join )
+        bail!("to many closing parenthesis ")
     }
     Ok(result)
 
 
 }
 fn read_list(r: & mut Reader) -> Result<MalType> {
-    // println!(" read list {:?}", r);
     let mut v: MalList = vec![];
     r.next();
     loop {
@@ -62,7 +56,6 @@ fn read_form(r: & mut Reader) -> Result<MalType>{
     }
 }
 fn read_atom(r: & mut Reader) -> Result<MalType> {
-    // println!(" read atom {:?}", r);
     let x = r.next().expect("should always be valid");
     if x.starts_with('"'){
         if x.len() == 1{
